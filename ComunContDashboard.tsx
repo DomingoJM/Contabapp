@@ -6,8 +6,7 @@ import {
   DocumentCheckIcon, 
   PlusCircleIcon,
   WifiIcon,
-  QrCodeIcon,
-  UserGroupIcon
+  QrCodeIcon
 } from '@heroicons/react/24/outline';
 
 interface TransaccionReciente {
@@ -21,10 +20,9 @@ interface TransaccionReciente {
   estadoDian: 'ACEPTADO' | 'NO_APLICA' | 'PENDIENTE';
 }
 
-export const ComunContDashboard: React.FC = () => {
+export const ContabAppDashboard: React.FC = () => {
   // Estado local para formulario PWA
   const [modalAbierto, setModalAbierto] = useState<boolean>(false);
-  const [offlineSync, setOfflineSync] = useState<boolean>(false);
 
   // Formulario de Facturación / Registro Comunitario
   const [formData, setFormData] = useState({
@@ -87,32 +85,37 @@ export const ComunContDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans p-4 md:p-8">
-      {/* HEADER SUPERIOR */}
+      {/* HEADER SUPERIOR CON LOGO OFICIAL */}
       <header className="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-slate-200 gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="bg-emerald-600 text-white p-2 rounded-xl shadow-md">
-              <BuildingLibraryIcon className="w-6 h-6" />
-            </span>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800">ComunCont</h1>
-              <p className="text-sm text-slate-500 font-medium">
-                Contabilidad Comunitaria & Facturación DIAN | JAC San Isidro & Ecosistema
-              </p>
+        <div className="flex items-center gap-3">
+          <img 
+            src="/logo.png" 
+            alt="Logo ContabApp" 
+            className="h-12 w-12 object-contain rounded-xl shadow-sm bg-white p-1 border border-slate-100" 
+          />
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">ContabApp</h1>
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                Comunidades
+              </span>
             </div>
+            <p className="text-xs md:text-sm text-slate-500 font-medium">
+              Contabilidad Comunitaria & Facturación Electrónica DIAN
+            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-xs font-semibold border border-emerald-200">
             <WifiIcon className="w-4 h-4 text-emerald-600" />
-            <span>PWA Sincronizada (En Línea)</span>
+            <span>PWA En Línea</span>
           </div>
           <button 
             onClick={() => setModalAbierto(true)}
-            className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2.5 rounded-xl font-medium shadow-md transition-all active:scale-95"
+            className="flex items-center gap-2 bg-[#0F3963] hover:bg-[#0b2b4b] text-white px-4 py-2.5 rounded-xl font-medium shadow-md transition-all active:scale-95"
           >
-            <PlusCircleIcon className="w-5 h-5" />
+            <PlusCircleIcon className="w-5 h-5 text-emerald-400" />
             <span>Emitir / Registrar</span>
           </button>
         </div>
@@ -123,7 +126,7 @@ export const ComunContDashboard: React.FC = () => {
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Caja & Bancos (11)</span>
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+            <div className="p-2 bg-blue-50 text-[#0F3963] rounded-lg">
               <BuildingLibraryIcon className="w-5 h-5" />
             </div>
           </div>
@@ -214,8 +217,8 @@ export const ComunContDashboard: React.FC = () => {
                 <tr key={tx.id} className="hover:bg-slate-50/70 transition-colors">
                   <td className="px-6 py-4">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                      tx.origen === 'AICAMPO' ? 'bg-amber-100 text-amber-800' :
-                      tx.origen === 'HORMIGAPP' ? 'bg-indigo-100 text-indigo-800' :
+                      tx.origen === 'AICAMPO' ? 'bg-emerald-100 text-emerald-800' :
+                      tx.origen === 'HORMIGAPP' ? 'bg-[#e6eff8] text-[#0F3963]' :
                       'bg-slate-100 text-slate-800'
                     }`}>
                       {tx.origen}
@@ -243,7 +246,7 @@ export const ComunContDashboard: React.FC = () => {
                     {tx.fecha}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 underline">
+                    <button className="text-xs font-semibold text-[#0F3963] hover:text-emerald-700 underline">
                       Ver Asiento
                     </button>
                   </td>
@@ -259,7 +262,10 @@ export const ComunContDashboard: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <h3 className="text-lg font-bold text-slate-800">Emitir Documento / Venta</h3>
+              <div className="flex items-center gap-2">
+                <img src="/logo.png" alt="ContabApp" className="h-8 w-8 object-contain" />
+                <h3 className="text-lg font-bold text-slate-800">Emitir Documento / Venta</h3>
+              </div>
               <button 
                 onClick={() => setModalAbierto(false)}
                 className="text-slate-400 hover:text-slate-600 text-lg font-bold"
@@ -369,7 +375,7 @@ export const ComunContDashboard: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 text-sm font-semibold bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl shadow-md transition-all"
+                  className="px-5 py-2.5 text-sm font-semibold bg-[#0F3963] hover:bg-[#0b2b4b] text-white rounded-xl shadow-md transition-all"
                 >
                   Confirmar y Contabilizar
                 </button>
@@ -382,4 +388,4 @@ export const ComunContDashboard: React.FC = () => {
   );
 };
 
-export default ComunContDashboard;
+export default ContabAppDashboard;
