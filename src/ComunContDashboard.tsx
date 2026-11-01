@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   BuildingLibraryIcon, 
   ArrowTrendingUpIcon, 
@@ -11,7 +11,12 @@ import {
   BanknotesIcon,
   QrCodeIcon,
   CreditCardIcon,
-  GlobeAltIcon
+  DocumentTextIcon,
+  GlobeAltIcon,
+  ShieldCheckIcon,
+  UsersIcon,
+  MicrophoneIcon,
+  WalletIcon
 } from '@heroicons/react/24/outline';
 
 import { EmpresaContable, MetricasFinancieras, TransaccionReciente } from './types';
@@ -20,79 +25,68 @@ import { CajaRapidaPOSModal } from './components/CajaRapidaPOSModal';
 import { ReportesInformesModal } from './components/ReportesInformesModal';
 import { ModuloCarteraFiadosModal } from './components/ModuloCarteraFiadosModal';
 import { ModuloProyectosONGModal } from './components/ModuloProyectosONGModal';
+import { ModuloConveniosSolidariosModal } from './components/ModuloConveniosSolidariosModal';
+import { GestionUsuariosEmpresaModal } from './components/GestionUsuariosEmpresaModal';
+import { AsistenteFacturaDemoModal, FacturaDemo } from './components/AsistenteFacturaDemoModal';
+import { ModuloFinanzasPersonalesModal } from './components/ModuloFinanzasPersonalesModal';
+import { ModuloDocumentoSoporteBorradorModal } from './components/ModuloDocumentoSoporteBorradorModal';
+import { ModuloNominaBorradorModal } from './components/ModuloNominaBorradorModal';
+import {
+  obtenerResumenFinanciero,
+  obtenerTransaccionesEmpresa,
+  PerfilUsuario,
+  puede,
+  ResumenFinancieroApi,
+  TransaccionApi,
+} from './services/authApi';
 
-export const ContabAppDashboard: React.FC = () => {
-  // Lista de empresas administradas (Multi-tenant)
-  const [empresas, setEmpresas] = useState<EmpresaContable[]>([
-    {
-      id: 'org-principal-01',
-      nombre_razon_social: 'Fundación Comunidades Sin Fronteras (ONG)',
-      nombre_comercial: 'FCS Fronteras',
-      tipo_persona: 'JURIDICA',
-      nit_o_cedula: '901845123',
-      dv: '4',
-      departamento: 'Santander',
-      ciudad: 'Bucaramanga',
-      municipio_dane: '68001',
-      direccion: 'Carrera 15 # 34-21',
-      telefono: '3002020325',
-      email_facturacion: 'contabilidad@fundacionfronteras.org',
-      esal_sin_animo_lucro: true,
-      activo: true,
-      config_fiscal: {
-        tipo_regimen: 'ESAL_ESPECIAL',
-        responsabilidad_fiscal: 'R-99-PN',
-        prefijo_facturacion: 'SETP',
-        consecutivo_actual: 43,
-        ambiente_habilitacion: true
-      }
-    },
-    {
-      id: 'org-emprendedor-02',
-      nombre_razon_social: 'Café & Cacao La Esperanza (AICampo)',
-      tipo_persona: 'NATURAL',
-      nit_o_cedula: '1098765432',
-      departamento: 'Santander',
-      ciudad: 'Rionegro',
-      municipio_dane: '68615',
-      direccion: 'Vereda El Salado Finca La Esperanza',
-      telefono: '3157894512',
-      email_facturacion: 'cosechas@aicampo.online',
-      esal_sin_animo_lucro: false,
-      activo: true,
-      config_fiscal: {
-        tipo_regimen: 'SIMPLE',
-        responsabilidad_fiscal: 'R-99-PN',
-        prefijo_facturacion: 'AGRO',
-        consecutivo_actual: 15,
-        ambiente_habilitacion: true
-      }
-    },
-    {
-      id: 'org-tienda-03',
-      nombre_razon_social: 'Tienda y Superetes El Porvenir (HormigApp)',
-      tipo_persona: 'NATURAL',
-      nit_o_cedula: '63541289',
-      departamento: 'Santander',
-      ciudad: 'Bucaramanga',
-      municipio_dane: '68001',
-      direccion: 'Calle 45 # 12-08 Barrio Santander',
-      telefono: '3189998877',
-      email_facturacion: 'tienda.porvenir@gmail.com',
-      esal_sin_animo_lucro: false,
-      activo: true,
-      config_fiscal: {
-        tipo_regimen: 'NO_RESPONSABLE_IVA',
-        responsabilidad_fiscal: 'R-99-PN',
-        prefijo_facturacion: 'TIEN',
-        consecutivo_actual: 89,
-        ambiente_habilitacion: true
-      }
-    }
-  ]);
+interface DashboardProps {
+  perfil: PerfilUsuario;
+  empresasIniciales: EmpresaContable[];
+  onSalir: () => void;
+}
+
+function convertirTransaccion(transaccion: TransaccionApi): TransaccionReciente {
+  const conceptos = transaccion.items_vendidos
+    .map((item) => item)
+    .filter((descripcion): descripcion is string => Boolean(descripcion));
+  const fecha = new Date(transaccion.recibido_en);
+  return {
+    id: transaccion.id,
+    origen: transaccion.origen_app,
+    concepto: transaccion.asiento_concepto || conceptos.join(', ') || `Orden ${transaccion.id_orden_origen}`,
+    monto: Number(transaccion.total),
+    tipo: transaccion.asiento_tipo === 'EGRESO' ? 'EGRESO' : 'INGRESO',
+    fecha: Number.isNaN(fecha.getTime()) ? transaccion.recibido_en : fecha.toLocaleString('es-CO'),
+    cufe: transaccion.cufe || undefined,
+    estadoDian: transaccion.factura_estado_dian,
+    comprador: transaccion.comprador || 'Consumidor final',
+    metodoPago: transaccion.metodo_pago,
+  };
+}
+
+function convertirMetricas(resumen: ResumenFinancieroApi): MetricasFinancieras {
+  return {
+    totalIngresos: Number(resumen.resumen_financiero.total_ingresos),
+    totalGastos: Number(resumen.resumen_financiero.total_gastos),
+    totalCostos: Number(resumen.resumen_financiero.total_costos),
+    excedenteNeto: Number(resumen.resumen_financiero.excedente_neto),
+    saldoCajaBancos: Number(resumen.resumen_financiero.saldo_disponible_caja_bancos),
+    facturasEmitidasDian: Number(resumen.total_facturas_dian),
+  };
+}
+
+export const ContabAppDashboard: React.FC<DashboardProps> = ({ perfil, empresasIniciales, onSalir }) => {
+  // Empresas a las que el usuario tiene credenciales (Multi-tenant)
+  const [empresas, setEmpresas] = useState<EmpresaContable[]>(empresasIniciales);
 
   const [empresaActualIndex, setEmpresaActualIndex] = useState<number>(0);
   const empresaActual = empresas[empresaActualIndex];
+  const accesoActual = perfil.empresas.find((e) => e.organizacion_id === empresaActual.id);
+  const ve = (recurso: string, accion: 'read' | 'write' = 'read') =>
+    puede(accesoActual, recurso, accion) || (perfil.es_admin_plataforma && recurso === 'empresa');
+  const puedeVerReportes = ve('reportes');
+  const puedeCrearFacturaDemo = puede(accesoActual, 'facturas_demo', 'write');
 
   // Modales
   const [modalWizardEmpresa, setModalWizardEmpresa] = useState<boolean>(false);
@@ -100,83 +94,68 @@ export const ContabAppDashboard: React.FC = () => {
   const [modalReportes, setModalReportes] = useState<boolean>(false);
   const [modalCarteraFiados, setModalCarteraFiados] = useState<boolean>(false);
   const [modalProyectosONG, setModalProyectosONG] = useState<boolean>(false);
+  const [modalConveniosSolidarios, setModalConveniosSolidarios] = useState<boolean>(false);
+  const [modalGestionUsuarios, setModalGestionUsuarios] = useState<boolean>(false);
+  const [modalFacturaDemo, setModalFacturaDemo] = useState<boolean>(false);
+  const [modalFinanzasPersonales, setModalFinanzasPersonales] = useState<boolean>(false);
+  const [modalDocumentoSoporteBorrador, setModalDocumentoSoporteBorrador] = useState<boolean>(false);
+  const [modalNomina, setModalNomina] = useState<boolean>(false);
+  const [facturasDemo, setFacturasDemo] = useState<FacturaDemo[]>([]);
 
   // Filtro de Origen
   const [filtroOrigen, setFiltroOrigen] = useState<string>('TODAS');
 
-  // Transacciones del Ecosistema
-  const [transacciones, setTransacciones] = useState<TransaccionReciente[]>([
-    {
-      id: 'tx-001',
-      origen: 'AICAMPO',
-      concepto: 'Subasta de 20 Cargas de Cacao Seco (Asoc. Campesina)',
-      monto: 3450000,
-      tipo: 'INGRESO',
-      fecha: '2026-10-27 08:15',
-      cufe: 'd7a4b081fa2c...89cf',
-      estadoDian: 'ACEPTADO',
-      comprador: 'Cooperativa Nacional Cacaotera',
-      metodoPago: 'TRANSFERENCIA'
-    },
-    {
-      id: 'tx-002',
-      origen: 'HORMIGAPP',
-      concepto: 'Venta de Víveres y Panela - Tienda La Ceiba',
-      monto: 125000,
-      tipo: 'INGRESO',
-      fecha: '2026-10-27 07:45',
-      cufe: 'a12bc884ef11...441e',
-      estadoDian: 'ACEPTADO',
-      comprador: 'Consumidor Final',
-      metodoPago: 'NEQUI'
-    },
-    {
-      id: 'tx-003',
-      origen: 'MYPSICO',
-      concepto: 'Sesión Terapéutica y Orientación Psicosocial',
-      monto: 80000,
-      tipo: 'INGRESO',
-      fecha: '2026-10-26 16:30',
-      cufe: 'e39c4a89d001...21fa',
-      estadoDian: 'ACEPTADO',
-      comprador: 'María Gómez Morales',
-      metodoPago: 'DAVIPLATA'
-    },
-    {
-      id: 'tx-004',
-      origen: 'DONACIONES',
-      concepto: 'Aporte Solidario Conectividad Escolar Veredal',
-      monto: 50000,
-      tipo: 'INGRESO',
-      fecha: '2026-10-26 14:10',
-      estadoDian: 'NO_APLICA',
-      comprador: 'Donante Solidario Bre-B',
-      metodoPago: 'BRE-B'
-    },
-    {
-      id: 'tx-005',
-      origen: 'MANUAL',
-      concepto: 'Mantenimiento Motobomba Acueducto Veredal',
-      monto: 350000,
-      tipo: 'EGRESO',
-      fecha: '2026-10-25 18:00',
-      estadoDian: 'NO_APLICA',
-      comprador: 'Taller Hidráulico del Oriente',
-      metodoPago: 'EFECTIVO'
-    }
-  ]);
+  const [transacciones, setTransacciones] = useState<TransaccionReciente[]>([]);
+  const [metricas, setMetricas] = useState<MetricasFinancieras | null>(null);
+  const [cargandoDatos, setCargandoDatos] = useState(true);
+  const [errorTransacciones, setErrorTransacciones] = useState('');
+  const [errorMetricas, setErrorMetricas] = useState('');
+  const [actualizacionDatos, setActualizacionDatos] = useState(0);
 
-  // Métricas Financieras NIIF en Tiempo Real
-  const metricas: MetricasFinancieras = {
-    totalIngresos: transacciones.filter(t => t.tipo === 'INGRESO').reduce((acc, t) => acc + t.monto, 0),
-    totalGastos: transacciones.filter(t => t.tipo === 'EGRESO').reduce((acc, t) => acc + t.monto, 0),
-    totalCostos: 480000,
-    excedenteNeto: 0,
-    saldoCajaBancos: 0,
-    facturasEmitidasDian: transacciones.filter(t => t.estadoDian === 'ACEPTADO').length
-  };
-  metricas.excedenteNeto = metricas.totalIngresos - metricas.totalGastos - metricas.totalCostos;
-  metricas.saldoCajaBancos = metricas.totalIngresos - metricas.totalGastos;
+  useEffect(() => {
+    let vigente = true;
+    setCargandoDatos(true);
+    setTransacciones([]);
+    setMetricas(null);
+    setErrorTransacciones('');
+    setErrorMetricas('');
+
+    const cargarDatos = async () => {
+      const resultados = await Promise.allSettled([
+        obtenerTransaccionesEmpresa(empresaActual.id),
+        puedeVerReportes
+          ? obtenerResumenFinanciero(empresaActual.id)
+          : Promise.resolve(null),
+      ]);
+      if (!vigente) return;
+
+      const resultadoTransacciones = resultados[0];
+      if (resultadoTransacciones.status === 'fulfilled') {
+        setTransacciones(resultadoTransacciones.value.map(convertirTransaccion));
+      } else {
+        setErrorTransacciones(
+          resultadoTransacciones.reason instanceof Error
+            ? resultadoTransacciones.reason.message
+            : 'No fue posible cargar las transacciones.'
+        );
+      }
+
+      const resultadoMetricas = resultados[1];
+      if (resultadoMetricas.status === 'fulfilled' && resultadoMetricas.value) {
+        setMetricas(convertirMetricas(resultadoMetricas.value));
+      } else if (resultadoMetricas.status === 'rejected') {
+        setErrorMetricas(
+          resultadoMetricas.reason instanceof Error
+            ? resultadoMetricas.reason.message
+            : 'No fue posible cargar el resumen financiero.'
+        );
+      }
+      setCargandoDatos(false);
+    };
+
+    void cargarDatos();
+    return () => { vigente = false; };
+  }, [empresaActual.id, puedeVerReportes, actualizacionDatos]);
 
   // Handlers
   const handleNuevaEmpresa = (nueva: EmpresaContable) => {
@@ -184,8 +163,8 @@ export const ContabAppDashboard: React.FC = () => {
     setEmpresaActualIndex(empresas.length);
   };
 
-  const handleNuevaTransaccion = (nuevaTx: TransaccionReciente) => {
-    setTransacciones([nuevaTx, ...transacciones]);
+  const handleNuevaTransaccion = (_nuevaTx: TransaccionReciente) => {
+    setActualizacionDatos((actual) => actual + 1);
   };
 
   const transaccionesFiltradas = filtroOrigen === 'TODAS'
@@ -236,7 +215,17 @@ export const ContabAppDashboard: React.FC = () => {
             </select>
           </div>
 
+          {/* Usuario y rol */}
+          <div className="flex items-center gap-2 text-[11px] text-slate-600">
+            <span className="font-bold">{perfil.username}</span>
+            <span className="bg-slate-100 rounded-full px-2 py-0.5">
+              {perfil.es_admin_plataforma ? 'Admin plataforma' : accesoActual?.rol_nombre}
+            </span>
+            <button onClick={onSalir} className="underline text-slate-500">Salir</button>
+          </div>
+
           {/* Botón Crear Empresa Wizard */}
+          {perfil.es_admin_plataforma && (
           <button
             onClick={() => setModalWizardEmpresa(true)}
             className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-sm"
@@ -244,8 +233,48 @@ export const ContabAppDashboard: React.FC = () => {
             <PlusCircleIcon className="w-4 h-4 text-emerald-600" />
             <span>Nueva Empresa</span>
           </button>
+          )}
+
+          {(perfil.es_admin_plataforma || puede(accesoActual, 'accesos', 'write')) && (
+            <button
+              onClick={() => setModalGestionUsuarios(true)}
+              className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-900 shadow-sm transition-all hover:bg-indigo-100"
+            >
+              <UsersIcon className="h-4 w-4 text-indigo-700" />
+              <span>Usuarios y roles</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setModalFinanzasPersonales(true)}
+            className="flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 text-xs font-bold text-violet-900 shadow-sm transition-all hover:bg-violet-100"
+          >
+            <WalletIcon className="h-4 w-4 text-violet-700" />
+            <span>Finanzas personales</span>
+          </button>
+
+          {ve('cuentas_por_pagar', 'write') && (
+            <button
+              onClick={() => setModalDocumentoSoporteBorrador(true)}
+              className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-bold text-amber-900 shadow-sm transition-all hover:bg-amber-100"
+            >
+              <DocumentTextIcon className="h-4 w-4 text-amber-700" />
+              <span>Soporte de compra (borrador)</span>
+            </button>
+          )}
+
+          {ve('nomina') && (
+            <button
+              onClick={() => setModalNomina(true)}
+              className="flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs font-bold text-sky-900 shadow-sm transition-all hover:bg-sky-100"
+            >
+              <UsersIcon className="h-4 w-4 text-sky-700" />
+              <span>Nómina (borrador)</span>
+            </button>
+          )}
 
           {/* Botón Cartera y Fiados */}
+          {ve('fiados') && (
           <button
             onClick={() => setModalCarteraFiados(true)}
             className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-bold transition-all border border-amber-200 shadow-sm"
@@ -253,9 +282,10 @@ export const ContabAppDashboard: React.FC = () => {
             <CreditCardIcon className="w-4 h-4 text-amber-600" />
             <span>Cartera & Fiados</span>
           </button>
+          )}
 
           {/* Botón Proyectos ONG */}
-          {empresaActual.esal_sin_animo_lucro && (
+          {empresaActual.esal_sin_animo_lucro && ve('proyectos') && (
             <button
               onClick={() => setModalProyectosONG(true)}
               className="flex items-center gap-1.5 px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-900 rounded-xl text-xs font-bold transition-all border border-purple-200 shadow-sm"
@@ -265,16 +295,39 @@ export const ContabAppDashboard: React.FC = () => {
             </button>
           )}
 
+          <button
+            onClick={() => setModalConveniosSolidarios(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-xs font-bold text-teal-900 shadow-sm transition-all hover:bg-teal-100"
+          >
+            <ShieldCheckIcon className="h-4 w-4 text-teal-700" />
+            <span>Convenios Solidarios</span>
+          </button>
+
           {/* Botón Reportes NIIF */}
+          {ve('reportes') && (
           <button
             onClick={() => setModalReportes(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-[#0F3963] rounded-xl text-xs font-bold transition-all border border-blue-200 shadow-sm"
+            disabled={!metricas}
+            className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 disabled:cursor-wait disabled:opacity-50 text-[#0F3963] rounded-xl text-xs font-bold transition-all border border-blue-200 shadow-sm"
           >
             <ScaleIcon className="w-4 h-4 text-blue-600" />
             <span>Reportes</span>
           </button>
+          )}
 
           {/* Botón Caja Rápida POS */}
+          {puedeCrearFacturaDemo && (
+            <button
+              onClick={() => setModalFacturaDemo(true)}
+              className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-bold text-emerald-900 shadow-sm transition-all hover:bg-emerald-100"
+            >
+              <MicrophoneIcon className="h-4 w-4 text-emerald-700" />
+              <span>Crear factura de muestra</span>
+            </button>
+          )}
+
+          {/* Botón Caja Rápida POS */}
+          {ve('ingesta', 'write') && (
           <button 
             onClick={() => setModalCajaRapida(true)}
             className="flex items-center gap-2 bg-[#0F3963] hover:bg-[#0b2b4b] text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md transition-all active:scale-95"
@@ -282,6 +335,7 @@ export const ContabAppDashboard: React.FC = () => {
             <BanknotesIcon className="w-4 h-4 text-emerald-400" />
             <span>Caja Rápida POS</span>
           </button>
+          )}
         </div>
       </header>
 
@@ -306,6 +360,17 @@ export const ContabAppDashboard: React.FC = () => {
         </div>
       </section>
 
+      {errorMetricas && (
+        <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+          No fue posible cargar el resumen financiero: {errorMetricas}
+        </p>
+      )}
+      {!puedeVerReportes && (
+        <p className="mt-4 rounded-xl border border-slate-200 bg-slate-100 p-3 text-xs text-slate-600">
+          Su rol no tiene permiso para consultar métricas ni estados financieros.
+        </p>
+      )}
+
       {/* 3. TARJETAS DE MÉTRICAS FINANCIERAS (NIIF) */}
       <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
         
@@ -318,7 +383,7 @@ export const ContabAppDashboard: React.FC = () => {
             </div>
           </div>
           <div className="text-2xl font-black text-slate-900 tracking-tight">
-            ${metricas.totalIngresos.toLocaleString('es-CO')}
+            {metricas ? `$${metricas.totalIngresos.toLocaleString('es-CO')}` : '—'}
           </div>
           <p className="text-[11px] text-slate-400 mt-1">HormigApp, AICampo, MyPsico, Donaciones</p>
         </div>
@@ -332,7 +397,7 @@ export const ContabAppDashboard: React.FC = () => {
             </div>
           </div>
           <div className="text-2xl font-black text-slate-900 tracking-tight">
-            ${metricas.saldoCajaBancos.toLocaleString('es-CO')}
+            {metricas ? `$${metricas.saldoCajaBancos.toLocaleString('es-CO')}` : '—'}
           </div>
           <p className="text-[11px] text-slate-400 mt-1">Efectivo, Nequi, Daviplata, Bre-B</p>
         </div>
@@ -348,7 +413,7 @@ export const ContabAppDashboard: React.FC = () => {
             </div>
           </div>
           <div className="text-2xl font-black text-purple-950 tracking-tight">
-            ${metricas.excedenteNeto.toLocaleString('es-CO')}
+            {metricas ? `$${metricas.excedenteNeto.toLocaleString('es-CO')}` : '—'}
           </div>
           <p className="text-[11px] text-slate-400 mt-1">Ingresos menos Gastos y Costos</p>
         </div>
@@ -362,11 +427,11 @@ export const ContabAppDashboard: React.FC = () => {
             </div>
           </div>
           <div className="text-2xl font-black text-slate-900 tracking-tight">
-            {metricas.facturasEmitidasDian}
+            {metricas?.facturasEmitidasDian ?? '—'}
           </div>
           <p className="text-[11px] text-emerald-600 font-semibold mt-1 flex items-center gap-1">
             <QrCodeIcon className="w-3.5 h-3.5" />
-            Validada con CUFE Oficial
+            Total de facturas registradas
           </p>
         </div>
 
@@ -380,7 +445,7 @@ export const ContabAppDashboard: React.FC = () => {
           <div>
             <h2 className="text-lg font-bold text-slate-900">Libro Diario & Movimientos del Ecosistema</h2>
             <p className="text-xs text-slate-500">
-              Asentamiento por partida doble con comprobante y tercero asociado
+              Últimos 50 movimientos contabilizados, con comprobante y tercero asociado
             </p>
           </div>
 
@@ -392,6 +457,7 @@ export const ContabAppDashboard: React.FC = () => {
               { id: 'AICAMPO', label: '🌾 AICampo' },
               { id: 'MYPSICO', label: '🧠 MyPsico' },
               { id: 'DONACIONES', label: '🤝 Donaciones' },
+              { id: 'SUSCRIPCIONES', label: '🔁 Suscripciones' },
               { id: 'MANUAL', label: '💵 Caja POS' },
             ].map(f => (
               <button
@@ -423,7 +489,13 @@ export const ContabAppDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {transaccionesFiltradas.map((t) => (
+              {errorTransacciones ? (
+                <tr><td colSpan={6} role="alert" className="py-8 text-center text-rose-700">{errorTransacciones}</td></tr>
+              ) : cargandoDatos ? (
+                <tr><td colSpan={6} className="py-8 text-center text-slate-500">Cargando movimientos…</td></tr>
+              ) : transaccionesFiltradas.length === 0 ? (
+                <tr><td colSpan={6} className="py-8 text-center text-slate-500">No hay transacciones para este filtro.</td></tr>
+              ) : transaccionesFiltradas.map((t) => (
                 <tr key={t.id} className="hover:bg-slate-50/70 transition-colors">
                   <td className="py-3.5 px-3">
                     <span className={`inline-block font-bold text-[10px] px-2 py-0.5 rounded-lg ${
@@ -452,16 +524,15 @@ export const ContabAppDashboard: React.FC = () => {
                     </span>
                   </td>
                   <td className="py-3.5 px-3 text-center whitespace-nowrap">
-                    {t.estadoDian === 'ACEPTADO' ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                        <QrCodeIcon className="w-3.5 h-3.5 text-emerald-600" />
-                        Validada
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                        No Aplica
-                      </span>
-                    )}
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                      t.estadoDian === 'ACEPTADO' ? 'border border-emerald-200 bg-emerald-50 text-emerald-700' :
+                      t.estadoDian === 'RECHAZADO' ? 'border border-rose-200 bg-rose-50 text-rose-700' :
+                      t.estadoDian === 'NO_APLICA' ? 'bg-slate-100 text-slate-500' :
+                      'border border-amber-200 bg-amber-50 text-amber-800'
+                    }`}>
+                      {t.estadoDian === 'ACEPTADO' && <QrCodeIcon className="h-3.5 w-3.5" />}
+                      {t.estadoDian === 'NO_APLICA' ? 'No aplica' : t.estadoDian.replace('_', ' ')}
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -471,11 +542,77 @@ export const ContabAppDashboard: React.FC = () => {
 
       </section>
 
+      {puedeCrearFacturaDemo && (
+        <section className="mt-6 rounded-3xl border border-amber-200 bg-amber-50/70 p-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-amber-950">Facturas ficticias de presentación</h2>
+              <p className="mt-1 text-xs text-amber-900">
+                No son documentos fiscales. Estas muestras solo se conservan mientras esta sesión permanezca abierta.
+              </p>
+            </div>
+            <span className="rounded-full border border-amber-300 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-900">
+              {facturasDemo.filter((factura) => factura.empresaId === empresaActual.id).length} muestras
+            </span>
+          </div>
+          <div className="mt-4 space-y-2">
+            {facturasDemo.filter((factura) => factura.empresaId === empresaActual.id).length === 0 ? (
+              <p className="rounded-xl bg-white/70 p-3 text-xs text-amber-900">
+                Aún no hay muestras. Usa el asistente para crear una sin afectar los registros reales.
+              </p>
+            ) : facturasDemo
+              .filter((factura) => factura.empresaId === empresaActual.id)
+              .map((factura) => (
+                <div key={factura.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-white p-3">
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">{factura.folio} · {factura.cliente}</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      {factura.descripcion} · {factura.medioPago} · {factura.fecha}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-slate-900">${factura.total.toLocaleString('es-CO')}</p>
+                    <span className="text-[10px] font-bold text-amber-800">FICTICIA · SIN VALIDEZ TRIBUTARIA</span>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </section>
+      )}
+
       {/* 5. MODALES INTERACTIVOS */}
       <WizardCrearEmpresaModal 
         isOpen={modalWizardEmpresa}
         onClose={() => setModalWizardEmpresa(false)}
         onEmpresaCreada={handleNuevaEmpresa}
+      />
+
+      <AsistenteFacturaDemoModal
+        isOpen={modalFacturaDemo}
+        onClose={() => setModalFacturaDemo(false)}
+        empresaId={empresaActual.id}
+        empresaNombre={empresaActual.nombre_razon_social}
+        onConfirmar={(factura) => setFacturasDemo((actuales) => [factura, ...actuales])}
+      />
+
+      <ModuloFinanzasPersonalesModal
+        isOpen={modalFinanzasPersonales}
+        onClose={() => setModalFinanzasPersonales(false)}
+      />
+
+      <ModuloDocumentoSoporteBorradorModal
+        isOpen={modalDocumentoSoporteBorrador}
+        empresaId={empresaActual.id}
+        empresaNombre={empresaActual.nombre_razon_social}
+        onClose={() => setModalDocumentoSoporteBorrador(false)}
+      />
+
+      <ModuloNominaBorradorModal
+        isOpen={modalNomina}
+        empresaId={empresaActual.id}
+        empresaNombre={empresaActual.nombre_razon_social}
+        puedeRevisar={ve('nomina_revision', 'write')}
+        onClose={() => setModalNomina(false)}
       />
 
       <CajaRapidaPOSModal 
@@ -497,13 +634,28 @@ export const ContabAppDashboard: React.FC = () => {
         empresaActual={empresaActual}
       />
 
-      <ReportesInformesModal 
-        isOpen={modalReportes}
-        onClose={() => setModalReportes(false)}
+      <ModuloConveniosSolidariosModal
+        isOpen={modalConveniosSolidarios}
+        onClose={() => setModalConveniosSolidarios(false)}
         empresaActual={empresaActual}
-        metricas={metricas}
-        transacciones={transacciones}
       />
+
+      <GestionUsuariosEmpresaModal
+        isOpen={modalGestionUsuarios}
+        onClose={() => setModalGestionUsuarios(false)}
+        empresa={empresaActual}
+        perfil={perfil}
+      />
+
+      {metricas && (
+        <ReportesInformesModal
+          isOpen={modalReportes}
+          onClose={() => setModalReportes(false)}
+          empresaActual={empresaActual}
+          metricas={metricas}
+          transacciones={transacciones}
+        />
+      )}
 
     </div>
   );

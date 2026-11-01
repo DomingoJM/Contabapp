@@ -30,7 +30,7 @@ export interface TransaccionReciente {
   tipo: 'INGRESO' | 'EGRESO';
   fecha: string;
   cufe?: string;
-  estadoDian: 'ACEPTADO' | 'NO_APLICA' | 'PENDIENTE' | 'BORRADOR';
+  estadoDian: 'ACEPTADO' | 'NO_APLICA' | 'PENDIENTE' | 'BORRADOR' | 'FIRMADO' | 'ENVIADO_DIAN' | 'RECHAZADO';
   comprador: string;
   metodoPago: string;
 }

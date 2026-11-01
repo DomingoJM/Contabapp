@@ -7,6 +7,7 @@ import {
   UserPlusIcon
 } from '@heroicons/react/24/outline';
 import { EmpresaContable, TransaccionReciente } from '../types';
+import { authFetch } from '../services/authApi';
 
 interface Props {
   isOpen: boolean;
@@ -62,9 +63,8 @@ export const CajaRapidaPOSModal: React.FC<Props> = ({
     };
 
     try {
-      fetch('http://localhost:8000/api/v1/contab/transacciones/ingesta/', {
+      authFetch('/contab/transacciones/ingesta/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           idempotency_key: `POS-${Date.now()}`,
           origen_app: 'MANUAL',

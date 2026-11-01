@@ -8,6 +8,7 @@ import {
   ShieldCheckIcon
 } from '@heroicons/react/24/outline';
 import { EmpresaContable } from '../types';
+import { authFetch } from '../services/authApi';
 
 interface Props {
   isOpen: boolean;
@@ -63,50 +64,25 @@ export const WizardCrearEmpresaModal: React.FC<Props> = ({ isOpen, onClose, onEm
     setGuardando(true);
 
     try {
-      // Simulación o llamado API a Comunidades_backend
-      const response = await fetch('http://localhost:8000/api/v1/contab/wizard/crear-empresa/', {
+      const response = await authFetch('/contab/wizard/crear-empresa/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       }).catch(() => null);
 
-      let nuevaEmpresa: EmpresaContable;
-      if (response && response.ok) {
-        const data = await response.json();
-        nuevaEmpresa = data.organizacion;
-      } else {
-        // Fallback local enriquecido
-        nuevaEmpresa = {
-          id: `org-${Date.now()}`,
-          nombre_razon_social: formData.nombre_razon_social,
-          nombre_comercial: formData.nombre_comercial || formData.nombre_razon_social,
-          tipo_persona: formData.tipo_persona,
-          nit_o_cedula: formData.nit_o_cedula,
-          dv: formData.dv,
-          departamento: formData.departamento,
-          ciudad: formData.ciudad,
-          municipio_dane: formData.municipio_dane,
-          direccion: formData.direccion,
-          telefono: formData.telefono,
-          email_facturacion: formData.email_facturacion,
-          esal_sin_animo_lucro: formData.esal_sin_animo_lucro,
-          activo: true,
-          config_fiscal: {
-            tipo_regimen: formData.tipo_regimen,
-            responsabilidad_fiscal: formData.responsabilidad_fiscal,
-            prefijo_facturacion: formData.prefijo_facturacion,
-            consecutivo_actual: 1,
-            ambiente_habilitacion: formData.ambiente_habilitacion
-          }
-        };
+      if (!response || !response.ok) {
+        window.alert(response?.status === 403
+          ? 'Solo el administrador de la plataforma puede crear empresas.'
+          : 'No se pudo crear la empresa. Verifique los datos e intente de nuevo.');
+        return;
       }
+      const data = await response.json();
+      const nuevaEmpresa: EmpresaContable = data.organizacion;
 
       onEmpresaCreada(nuevaEmpresa);
       onClose();
       setPaso(1);
     } catch {
-      alert('Empresa creada localmente y sincronizada con el catálogo NIIF.');
-      onClose();
+      window.alert('No se pudo crear la empresa.');
     } finally {
       setGuardando(false);
     }
