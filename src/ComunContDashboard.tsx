@@ -39,11 +39,16 @@ import {
   ResumenFinancieroApi,
   TransaccionApi,
 } from './services/authApi';
+import { datosFicticiosDemo, RolDemo } from './demoData';
 
 interface DashboardProps {
   perfil: PerfilUsuario;
   empresasIniciales: EmpresaContable[];
   onSalir: () => void;
+  modoDemo?: boolean;
+  rolDemo?: RolDemo;
+  datosDemo?: typeof datosFicticiosDemo;
+  onCambiarRolDemo?: (rol: RolDemo) => void;
 }
 
 function convertirTransaccion(transaccion: TransaccionApi): TransaccionReciente {
@@ -76,7 +81,15 @@ function convertirMetricas(resumen: ResumenFinancieroApi): MetricasFinancieras {
   };
 }
 
-export const ContabAppDashboard: React.FC<DashboardProps> = ({ perfil, empresasIniciales, onSalir }) => {
+export const ContabAppDashboard: React.FC<DashboardProps> = ({
+  perfil,
+  empresasIniciales,
+  onSalir,
+  modoDemo = false,
+  rolDemo = 'EMPRENDEDOR',
+  datosDemo,
+  onCambiarRolDemo,
+}) => {
   // Empresas a las que el usuario tiene credenciales (Multi-tenant)
   const [empresas, setEmpresas] = useState<EmpresaContable[]>(empresasIniciales);
 
@@ -121,6 +134,13 @@ export const ContabAppDashboard: React.FC<DashboardProps> = ({ perfil, empresasI
     setErrorMetricas('');
 
     const cargarDatos = async () => {
+      if (modoDemo) {
+        setTransacciones(datosDemo?.transacciones ?? []);
+        setMetricas(datosDemo?.metricas ?? null);
+        setCargandoDatos(false);
+        return;
+      }
+
       const resultados = await Promise.allSettled([
         obtenerTransaccionesEmpresa(empresaActual.id),
         puedeVerReportes
@@ -155,7 +175,7 @@ export const ContabAppDashboard: React.FC<DashboardProps> = ({ perfil, empresasI
 
     void cargarDatos();
     return () => { vigente = false; };
-  }, [empresaActual.id, puedeVerReportes, actualizacionDatos]);
+  }, [empresaActual.id, puedeVerReportes, actualizacionDatos, modoDemo, datosDemo]);
 
   // Handlers
   const handleNuevaEmpresa = (nueva: EmpresaContable) => {
@@ -221,6 +241,20 @@ export const ContabAppDashboard: React.FC<DashboardProps> = ({ perfil, empresasI
             <span className="bg-slate-100 rounded-full px-2 py-0.5">
               {perfil.es_admin_plataforma ? 'Admin plataforma' : accesoActual?.rol_nombre}
             </span>
+            {modoDemo && onCambiarRolDemo && (
+              <select
+                value={rolDemo}
+                onChange={(e) => onCambiarRolDemo(e.target.value as RolDemo)}
+                aria-label="Cambiar perspectiva de demostración"
+                className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-900"
+              >
+                <option value="GERENTE">Gerente</option>
+                <option value="CONTADOR">Contador</option>
+                <option value="EMPRENDEDOR">Emprendedor</option>
+                <option value="ADMIN">Admin</option>
+                <option value="SUPERADMIN">Superadmin</option>
+              </select>
+            )}
             <button onClick={onSalir} className="underline text-slate-500">Salir</button>
           </div>
 
@@ -338,6 +372,13 @@ export const ContabAppDashboard: React.FC<DashboardProps> = ({ perfil, empresasI
           )}
         </div>
       </header>
+
+      {modoDemo && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-950">
+          <span><strong>Modo demostración:</strong> todos los valores son ficticios y no generan documentos fiscales.</span>
+          <span className="rounded-full bg-white px-2.5 py-1 font-bold uppercase tracking-wide text-amber-800">Sin persistencia real</span>
+        </div>
+      )}
 
       {/* 2. BARRA DE ESTADO TRIBUTARIO Y AMBIENTE */}
       <section className="mt-4 flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm text-xs">

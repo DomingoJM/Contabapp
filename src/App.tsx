@@ -5,6 +5,7 @@ import { WizardCrearEmpresaModal } from './components/WizardCrearEmpresaModal';
 import { ModuloFinanzasPersonalesModal } from './components/ModuloFinanzasPersonalesModal';
 import { cerrarSesion, obtenerEmpresas, obtenerPerfil, PerfilUsuario } from './services/authApi';
 import { EmpresaContable } from './types';
+import { crearPerfilDemo, datosFicticiosDemo, empresaDemo, RolDemo } from './demoData';
 
 export default function App() {
   const [perfil, setPerfil] = useState<PerfilUsuario | null>(null);
@@ -13,6 +14,8 @@ export default function App() {
   const [aviso, setAviso] = useState('');
   const [wizard, setWizard] = useState(false);
   const [finanzasPersonalesAbiertas, setFinanzasPersonalesAbiertas] = useState(false);
+  const [modoDemo, setModoDemo] = useState(false);
+  const [rolDemo, setRolDemo] = useState<RolDemo>('EMPRENDEDOR');
 
   const cargarSesion = useCallback(async (usuario: PerfilUsuario | null) => {
     setPerfil(usuario);
@@ -45,11 +48,32 @@ export default function App() {
     setPerfil(null);
     setEmpresas([]);
     setAviso('');
+    setModoDemo(false);
+  };
+
+  const entrarDemo = (usuario: PerfilUsuario, rol: RolDemo) => {
+    setModoDemo(true);
+    setRolDemo(rol);
+    setPerfil(usuario);
+    setEmpresas([empresaDemo]);
+    setAviso('');
+  };
+
+  const cambiarRolDemo = (rol: RolDemo) => {
+    setRolDemo(rol);
+    setPerfil(crearPerfilDemo(rol));
+    setEmpresas([empresaDemo]);
   };
 
   if (cargando) return null;
   if (!perfil) {
-    return <LoginScreen aviso={aviso} onLogin={(p) => { setAviso(''); void cargarSesion(p); }} />;
+    return (
+      <LoginScreen
+        aviso={aviso}
+        onLogin={(p) => { setModoDemo(false); setAviso(''); void cargarSesion(p); }}
+        onDemoLogin={entrarDemo}
+      />
+    );
   }
 
   if (empresas.length === 0) {
@@ -92,5 +116,15 @@ export default function App() {
     );
   }
 
-  return <ComunContDashboard perfil={perfil} empresasIniciales={empresas} onSalir={salir} />;
+  return (
+    <ComunContDashboard
+      perfil={perfil}
+      empresasIniciales={empresas}
+      onSalir={salir}
+      modoDemo={modoDemo}
+      rolDemo={rolDemo}
+      datosDemo={modoDemo ? datosFicticiosDemo : undefined}
+      onCambiarRolDemo={modoDemo ? cambiarRolDemo : undefined}
+    />
+  );
 }
